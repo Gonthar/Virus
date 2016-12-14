@@ -4,6 +4,7 @@
 #include <vector>
 #include <exception>
 #include <stdexcept>
+#include <memory>
 
 class VirusAlreadyCreated : std::runtime_error {
 public:
@@ -79,6 +80,19 @@ public:
 	const VirusGenealogy& operator=(const VirusGenealogy& rhs) = delete;
 
 private:
+
+	std::map<Virus::id_type, std::weak_ptr<Node>> virus_map;
+
+	struct Node {
+		std::unique_ptr<Virus> virus_ptr;
+		std::vector<std::shared_ptr<Node>> children;
+		std::vector<std::weak_ptr<Node>> parents;
+
+		Node(const Virus::id_type& id)
+			: virus_ptr(new Virus(id)) {}
+	};
+
+	std::unique_ptr<Node> stem_node;
 
 };
 
