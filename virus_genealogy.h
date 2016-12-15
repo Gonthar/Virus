@@ -29,11 +29,40 @@ public:
 template<class Virus>
 class VirusGenealogy {
 
+private:
+
+    typedef typename Virus::id_type id_type;
+
+    class Node {
+    public:
+        id_type id;
+        std::unique_ptr<Virus> virus_ptr;
+        std::map<id_type, std::shared_ptr<Node>> children;
+        std::map<id_type, std::weak_ptr<Node>> parents;
+
+        Node(const id_type& vir_id)
+            : id(vir_id)
+            , virus_ptr(new Virus(vir_id)) {}
+    };
+
+    std::unordered_map<id_type, std::weak_ptr<Node>> virus_map;
+    std::shared_ptr<Node> stem_node;
+
+    std::weak_ptr<Node> find_map(const id_type& id) const
+    {
+        try {
+            return virus_map.at(id);
+        }
+        catch (const std::exception& e) {
+            throw VirusNotFound();
+        }
+    }
+
 public:
 
     VirusGenealogy(const VirusGenealogy& v) = delete;
 
-    VirusGenealogy(const typename Virus::id_type& stem_id)
+    VirusGenealogy(const id_type& stem_id)
         : stem_node(nullptr)
     {
         stem_node = std::make_shared<Node>(stem_id);
@@ -41,15 +70,15 @@ public:
         virus_map.insert(std::make_pair(stem_id, stem_weak_ptr));
     }
 
-    typename Virus::id_type get_stem_id() const {
+    id_type get_stem_id() const {
         return (*stem_node->virus_ptr).get_id();
     }
 
-    std::vector<typename Virus::id_type>
-    get_children(const typename Virus::id_type& id) const
+    std::vector<id_type>
+    get_children(const id_type& id) const
     {
         auto spt = find_map(id).lock();
-        std::vector<typename Virus::id_type> res;
+        std::vector<id_type> res;
 
         for (auto p : spt->children)
             res.push_back(p.first);
@@ -57,11 +86,11 @@ public:
         return res;
     }
 
-    std::vector<typename Virus::id_type>
-    get_parents(const typename Virus::id_type& id) const
+    std::vector<id_type>
+    get_parents(const id_type& id) const
     {
         auto spt = find_map(id).lock();
-        std::vector<typename Virus::id_type> res;
+        std::vector<id_type> res;
 
         for (auto p : spt->parents)
             res.push_back(p.first);
@@ -69,31 +98,31 @@ public:
         return res;
     }
 
-    bool exists(const typename Virus::id_type& id) const
+    bool exists(const id_type& id) const
     {
         return virus_map.find(id) != virus_map.end(); //TODO STRONG
     }
 
-    Virus& operator[](const typename Virus::id_type& id) const
+    Virus& operator[](const id_type& id) const
     {
         auto spt = find_map(id).lock(); //TODO STRONG?
         return *spt->virus_ptr;
     }
 
-    void create(const typename Virus::id_type& id,
-                const typename Virus::id_type& parent_id)
+    void create(const id_type& id,
+                const id_type& parent_id)
     {
-        create(id, std::vector<typename Virus::id_type>(1, parent_id));
+        create(id, std::vector<id_type>(1, parent_id));
     }
 
-    void create(const typename Virus::id_type& id,
-                            const std::vector<typename Virus::id_type>& parent_ids)
+    void create(const id_type& id,
+                            const std::vector<id_type>& parent_ids)
     {
     if (exists(id))
         throw VirusAlreadyCreated();
     if (parent_ids.empty())
         throw VirusNotFound();
-    for (typename Virus::id_type parent : parent_ids)
+    for (id_type parent : parent_ids)
     {
         if (!exists(parent))
             throw VirusNotFound();
@@ -102,7 +131,7 @@ public:
     std::shared_ptr<Node> v_sptr = std::make_shared<Node>(id);
     std::weak_ptr<Node> v_ptr = v_sptr;
 
-    for (typename Virus::id_type parent : parent_ids)
+    for (id_type parent : parent_ids)
     {
         std::weak_ptr<Node> parent_ptr = find_map(parent);
         v_sptr->parents.insert(std::make_pair(parent, parent_ptr));
@@ -113,8 +142,8 @@ public:
         virus_map.insert(std::make_pair(id, v_ptr));
     }
 
-    void connect(const typename Virus::id_type& child_id,
-                             const typename Virus::id_type& parent_id)
+    void connect(const id_type& child_id,
+                             const id_type& parent_id)
     {
         auto parent_weak = find_map(parent_id);
         auto child = find_map(child_id).lock();
@@ -129,7 +158,7 @@ public:
         }
     }
 
-    void remove(const typename Virus::id_type& id)
+    void remove(const id_type& id)
     {
         if (id == stem_node->id)
             throw TriedToRemoveStemVirus();
@@ -153,33 +182,6 @@ public:
     }
 
     const VirusGenealogy& operator=(const VirusGenealogy& rhs) = delete;
-
-private:
-
-    class Node {
-    public:
-        typename Virus::id_type id;
-        std::unique_ptr<Virus> virus_ptr;
-        std::map<typename Virus::id_type, std::shared_ptr<Node>> children;
-        std::map<typename Virus::id_type, std::weak_ptr<Node>> parents;
-
-        Node(const typename Virus::id_type& vir_id)
-            : id(vir_id)
-            , virus_ptr(new Virus(vir_id)) {}
-    };
-
-    std::unordered_map<typename Virus::id_type, std::weak_ptr<Node>> virus_map;
-    std::shared_ptr<Node> stem_node;
-
-    std::weak_ptr<Node> find_map(const typename Virus::id_type& id) const
-    {
-        try {
-            return virus_map.at(id);
-        }
-        catch (const std::exception& e) {
-            throw VirusNotFound();
-        }
-    }
 };
 
 #endif /* VIRUS_GENEALOGY_H */
