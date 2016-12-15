@@ -114,10 +114,14 @@ public:
 		auto parent_weak = find_map(parent_id);
 		auto child = find_map(child_id).lock();
 
-		child->parents.insert({parent_id, parent_weak})
+		auto ins_result = child->parents.insert({parent_id, parent_weak})
 
-		auto parent = parent_weak.lock();
-		parent->children.insert({child_id, child});
+		try {
+			auto parent = parent_weak.lock();
+			parent->children.insert({child_id, child});
+		} catch (std::exception& e) {
+			child->parents.erase(ins_result.first); // nothrow na iteratorze
+		}
 	}
 
 	void remove(const Virus::id_type& id)
@@ -134,7 +138,8 @@ public:
 			}
 		} // ~shared_ptr<Node>();
 
-		for (auto it = virus_map.begin(); it != virus_map.end(); ) {
+		for (auto it = virus_map.begin(); it != virus_map.end(); )
+		{
 			if ((*it).second.expired())
 				it = virus_map.erase(it);
 			else
@@ -161,7 +166,7 @@ private:
 			: virus_ptr(new Virus(id))
 			, id(id) {}
 
-    void add_parent(std::shared_ptr<Node> &parent) {
+    /*void add_parent(std::shared_ptr<Node> &parent) {
         std::weak_ptr<Node> parent_ptr(parent); // TODO CONST
         parents.insert(parent_ptr); // TODO STRONG
     } // TODO STRONG OVERALL
@@ -169,6 +174,7 @@ private:
     void add_child(std::shared_ptr<Node> &child) {
         children.insert(child); // TODO STRONG
     } // TODO STRONG OVERALL
+		*/
   };
 
 	std::weak_ptr<Node>& find_map(const Virus::id_type& id) const
