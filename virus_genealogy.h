@@ -137,12 +137,12 @@ public:
                 throw VirusNotFound();
         }
 
+        std::shared_ptr<Node> v_sptr = std::make_shared<Node>(id);
+        std::weak_ptr<Node> v_ptr = v_sptr;
+
         std::stack<std::pair<std::map<id_type, std::shared_ptr<Node>>*,
                              typename std::map<id_type, std::shared_ptr<Node>>::iterator>>
         operation_stack;
-
-        std::shared_ptr<Node> v_sptr = std::make_shared<Node>(id);
-        std::weak_ptr<Node> v_ptr = v_sptr;
 
         try {
             for (id_type parent : parent_ids)
@@ -160,8 +160,9 @@ public:
         } catch (...) {
             while (!operation_stack.empty())
             {
-                auto op = operation_stack.pop();
+                auto op = operation_stack.top();
                 (*op.first).erase(op.second);
+                operation_stack.pop();
             }
         }
     }
@@ -187,19 +188,46 @@ public:
         if (id == stem_node->id)
             throw TriedToRemoveStemVirus();
 
+        std::stack<std::map<id_type, std::shared_ptr<Node>>*>
+        operation_stack_parents;
+
+        std::stack<std::map<id_type, std::weak_ptr<Node>>*>
+        operation_stack_children;
+
         {
-            auto spt = find_map(id).lock();
+            auto weak = find_map(id);
+            auto spt = weak.lock();
 
-            for (auto parent : spt->parents)
-            {
-                auto parent_ptr = parent.second.lock();
-                parent_ptr->children.erase(spt->id);
-            }
+            try {
+                for (auto parent : spt->parents)
+                {
+                    auto parent_ptr = parent.second.lock();
+                    parent_ptr->children.erase(spt->id);
 
-            for (auto child : spt->children)
-            {
-                auto child_ptr = child.second;
-                child_ptr->parents.erase(spt->id);
+                    operation_stack_parents.push(&parent_ptr->children);
+                }
+
+                for (auto child : spt->children)
+                {
+                    auto child_ptr = child.second;
+                    child_ptr->parents.erase(spt->id);
+
+                    operation_stack_children.push(&child_ptr->parents);
+                }
+            } catch (...) {
+                while (!operation_stack_parents.empty())
+                {
+                    auto op = operation_stack_parents.top();
+                    (*op).insert(std::make_pair(spt->id, spt));
+                    operation_stack_parents.pop();
+                }
+
+                while (!operation_stack_children.empty())
+                {
+                    auto op = operation_stack_children.top();
+                    (*op).insert(std::make_pair(spt->id, weak));
+                    operation_stack_children.pop();
+                }
             }
         }
 
