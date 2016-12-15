@@ -77,7 +77,8 @@ public:
         virus_map.insert(std::make_pair(stem_id, stem_weak_ptr));
     }
 
-    id_type get_stem_id() const {
+    id_type get_stem_id() const
+    {
         return (*stem_node->virus_ptr).get_id();
     }
 
@@ -123,7 +124,7 @@ public:
     }
 
     void create(const id_type& id,
-                            const std::vector<id_type>& parent_ids)
+                const std::vector<id_type>& parent_ids)
     {
         if (exists(id))
             throw VirusAlreadyCreated();
