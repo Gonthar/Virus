@@ -5,6 +5,7 @@
 #include <exception>
 #include <stdexcept>
 #include <memory>
+#include <set>
 
 class VirusAlreadyCreated : std::runtime_error {
 public:
@@ -94,8 +95,26 @@ public:
 		// TODO
 	}
 
-	void remove(const Virus::id_type& id) {
-		// TODO
+	void remove(const Virus::id_type& id)
+	{
+		if (id == stem_node->id)
+			throw TriedToRemoveStemVirus();
+
+		{
+			auto spt = find_map(id).lock();
+
+			for (auto parent : spt->parents) {
+				auto parent_ptr = parent.lock();
+				parent_ptr->children.erase(spt);
+			}
+		} // ~shared_ptr<Node>();
+
+		for (auto it = virus_map.begin(); it != virus_map.end(); ) {
+			if ((*it).second.expired())
+				it = virus_map.erase(it);
+			else
+				++it;
+		}
 	}
 
 	const VirusGenealogy& operator=(const VirusGenealogy& rhs) = delete;
@@ -103,19 +122,18 @@ public:
 private:
 
 	std::unordered_map<Virus::id_type, std::weak_ptr<Node>> virus_map;
+	std::shared_ptr<Node> stem_node;
 
 	struct Node {
 		Virus::id_type id;
 		std::unique_ptr<Virus> virus_ptr;
-		std::vector<std::shared_ptr<Node>> children;
-		std::vector<std::weak_ptr<Node>> parents;
+		std::set<std::shared_ptr<Node>> children;
+		std::set<std::weak_ptr<Node>> parents;
 
 		Node(const Virus::id_type& vir_id)
 			: virus_ptr(new Virus(id))
 			, id(id) {}
 	};
-
-	std::shared_ptr<Node> stem_node;
 
 	std::weak_ptr<Node>& find_map(const Virus::id_type& id) const
 	{
