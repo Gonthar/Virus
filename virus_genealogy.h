@@ -31,8 +31,6 @@ class VirusGenealogy {
 
 public:
 
-    struct Node;
-
     VirusGenealogy(const VirusGenealogy& v) = delete;
 
     VirusGenealogy(const typename Virus::id_type& stem_id)
@@ -85,7 +83,7 @@ public:
     void create(const typename Virus::id_type& id,
                 const typename Virus::id_type& parent_id)
     {
-        create(id, std::vector<const typename Virus::id_type>({parent_id}));
+        create(id, std::vector<typename Virus::id_type>(1, parent_id));
     }
 
     void create(const typename Virus::id_type& id,
@@ -110,7 +108,7 @@ public:
         v_sptr->parents.insert(std::make_pair(parent, parent_ptr));
 
         auto parent_sptr = parent_ptr.lock();
-        parent_sptr->children.insert(std::make_pair(id, v_ptr));
+        parent_sptr->children.insert(std::make_pair(id, v_sptr));
     }
         virus_map.insert(std::make_pair(id, v_ptr));
     }
@@ -166,14 +164,14 @@ private:
         std::map<typename Virus::id_type, std::weak_ptr<Node>> parents;
 
         Node(const typename Virus::id_type& vir_id)
-            : virus_ptr(new Virus(id))
-            , id(vir_id) {}
+            : id(vir_id)
+            , virus_ptr(new Virus(vir_id)) {}
     };
 
-    std::unordered_map<Virus::id_type, std::weak_ptr<Node>> virus_map;
+    std::unordered_map<typename Virus::id_type, std::weak_ptr<Node>> virus_map;
     std::shared_ptr<Node> stem_node;
 
-    std::weak_ptr<Node>& find_map(const typename Virus::id_type& id) const
+    std::weak_ptr<Node> find_map(const typename Virus::id_type& id) const
     {
         try {
             return virus_map.at(id);
