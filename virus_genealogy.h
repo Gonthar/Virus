@@ -38,32 +38,32 @@ class VirusGenealogy {
 
 private:
 
-    typedef typename Virus::id_type id_type;
+	typedef typename Virus::id_type id_type;
 
-    class Node {
-    public:
-        id_type id;
-        std::unique_ptr<Virus> virus_ptr;
-        std::map<id_type, std::shared_ptr<Node>> children;
-        std::map<id_type, std::weak_ptr<Node>> parents;
+	class Node {
+	public:
+		id_type id;
+		std::unique_ptr<Virus> virus_ptr;
+		std::map<id_type, std::shared_ptr<Node>> children;
+		std::map<id_type, std::weak_ptr<Node>> parents;
 
-        Node(const id_type& vir_id)
-            : id(vir_id)
-            , virus_ptr(new Virus(vir_id)) {}
-    };
+		Node(const id_type& vir_id)
+				: id(vir_id)
+				, virus_ptr(new Virus(vir_id)) {}
+	};
 
-    std::unordered_map<id_type, std::weak_ptr<Node>> virus_map;
-    std::shared_ptr<Node> stem_node;
+	std::unordered_map<id_type, std::weak_ptr<Node>> virus_map;
+	std::shared_ptr<Node> stem_node;
 
-    std::weak_ptr<Node> find_map(const id_type& id) const
-    {
-        try {
-            return virus_map.at(id);
-        }
-        catch (const std::exception& e) {
-            throw VirusNotFound();
-        }
-    }
+	std::weak_ptr<Node> find_map(const id_type& id) const
+	{
+		try {
+			return virus_map.at(id);
+		}
+		catch (const std::exception& e) {
+			throw VirusNotFound();
+		}
+	}
 
 public:
 
