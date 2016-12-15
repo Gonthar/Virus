@@ -8,22 +8,28 @@
 #include <map>
 #include <unordered_map>
 
-class VirusAlreadyCreated : std::runtime_error {
-public:
-    VirusAlreadyCreated()
-        : std::runtime_error("VirusAlreadyCreated") {}
+class VirusNotFound : public std::exception
+{
+	const char* what() const noexcept
+	{
+		return "VirusNotFound";
+	}
 };
 
-class VirusNotFound : std::runtime_error {
-public:
-    VirusNotFound()
-        : std::runtime_error("VirusNotFound") {}
+class VirusAlreadyCreated : public std::exception
+{
+	const char* what() const noexcept
+	{
+		return "VirusAlreadyCreated";
+	}
 };
 
-class TriedToRemoveStemVirus : std::runtime_error {
-public:
-    TriedToRemoveStemVirus()
-        : std::runtime_error("TriedToRemoveStemVirus") {}
+class TriedToRemoveStemVirus : public std::exception
+{
+	const char* what() const noexcept
+	{
+		return "TriedToRemoveStemVirus";
+	}
 };
 
 template<class Virus>
@@ -100,12 +106,12 @@ public:
 
     bool exists(const id_type& id) const
     {
-        return virus_map.find(id) != virus_map.end(); //TODO STRONG
+        return virus_map.find(id) != virus_map.end();
     }
 
     Virus& operator[](const id_type& id) const
     {
-        auto spt = find_map(id).lock(); //TODO STRONG?
+        auto spt = find_map(id).lock();
         return *spt->virus_ptr;
     }
 
@@ -170,7 +176,7 @@ public:
                 auto parent_ptr = parent.second.lock();
                 parent_ptr->children.erase(spt->id);
             }
-        } // ~shared_ptr<Node>();
+        }
 
         for (auto it = virus_map.begin(); it != virus_map.end(); )
         {
