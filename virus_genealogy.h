@@ -7,6 +7,7 @@
 #include <memory>
 #include <map>
 #include <unordered_map>
+#include <stack>
 
 class VirusNotFound : public std::exception
 {
@@ -124,28 +125,45 @@ public:
     void create(const id_type& id,
                             const std::vector<id_type>& parent_ids)
     {
-    if (exists(id))
-        throw VirusAlreadyCreated();
-    if (parent_ids.empty())
-        throw VirusNotFound();
-    for (id_type parent : parent_ids)
-    {
-        if (!exists(parent))
+        if (exists(id))
+            throw VirusAlreadyCreated();
+
+        if (parent_ids.empty())
             throw VirusNotFound();
-    }
 
-    std::shared_ptr<Node> v_sptr = std::make_shared<Node>(id);
-    std::weak_ptr<Node> v_ptr = v_sptr;
+        for (id_type parent : parent_ids)
+        {
+            if (!exists(parent))
+                throw VirusNotFound();
+        }
 
-    for (id_type parent : parent_ids)
-    {
-        std::weak_ptr<Node> parent_ptr = find_map(parent);
-        v_sptr->parents.insert(std::make_pair(parent, parent_ptr));
+        std::stack<std::pair<std::map<id_type, std::shared_ptr<Node>>*,
+                             typename std::map<id_type, std::shared_ptr<Node>>::iterator>>
+        operation_stack;
 
-        auto parent_sptr = parent_ptr.lock();
-        parent_sptr->children.insert(std::make_pair(id, v_sptr));
-    }
-        virus_map.insert(std::make_pair(id, v_ptr));
+        std::shared_ptr<Node> v_sptr = std::make_shared<Node>(id);
+        std::weak_ptr<Node> v_ptr = v_sptr;
+
+        try {
+            for (id_type parent : parent_ids)
+            {
+                auto parent_ptr = find_map(parent);
+                v_sptr->parents.insert(std::make_pair(parent, parent_ptr));
+
+                auto parent_sptr = parent_ptr.lock();
+                auto ins_result = parent_sptr->children.insert(std::make_pair(id, v_sptr));
+
+                operation_stack.push(std::make_pair(&parent_sptr->children, ins_result.first));
+            }
+
+            virus_map.insert(std::make_pair(id, v_ptr));
+        } catch (...) {
+            while (!operation_stack.empty())
+            {
+                auto op = operation_stack.pop();
+                (*op.first).erase(op.second);
+            }
+        }
     }
 
     void connect(const id_type& child_id,
@@ -159,8 +177,8 @@ public:
         try {
             auto parent = parent_weak.lock();
             parent->children.insert(std::make_pair(child_id, child));
-        } catch (std::exception& e) {
-            child->parents.erase(ins_result.first); // nothrow na iteratorze
+        } catch (...) {
+            child->parents.erase(ins_result.first);
         }
     }
 
@@ -172,9 +190,16 @@ public:
         {
             auto spt = find_map(id).lock();
 
-            for (auto parent : spt->parents) {
+            for (auto parent : spt->parents)
+            {
                 auto parent_ptr = parent.second.lock();
                 parent_ptr->children.erase(spt->id);
+            }
+
+            for (auto child : spt->children)
+            {
+                auto child_ptr = child.second;
+                child_ptr->parents.erase(spt->id);
             }
         }
 
