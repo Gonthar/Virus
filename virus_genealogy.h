@@ -32,30 +32,51 @@ public:
 	VirusGenealogy(const VirusGenealogy& v) = delete;
 
 	VirusGenealogy(const Virus::id_type& stem_id)
+		: stem_node(nullptr)
 	{
-		// TODO
+		std::weak_ptr<Node> stem_weak_ptr {stem_node = std::make_shared<Node>(stem_id)};
+		virus_map.insert({stem_id, stem_weak_ptr});
 	}
 
 	Virus::id_type get_stem_id() const {
-		// TODO
+		return (*stem_node->virus_ptr).get_id();
 	}
 
 	std::vector<Virus::id_type>
-	get_children(const Virus::id_type& id) const {
-		// TODO
+	get_children(const Virus::id_type& id) const
+	{
+		auto spt = find_map(id).lock();
+		std::vector<Virus::id_type> res;
+
+		for (auto p : spt->children)
+			res.push_back(p->id);
+
+		return res;
 	}
 
 	std::vector<Virus::id_type>
-	get_parents(const Virus::id_type& id) const {
-		// TODO
+	get_parents(const Virus::id_type& id) const
+	{
+		auto spt = find_map(id).lock();
+		std::vector<Virus::id_type> res;
+
+		for (auto p : spt->parents) {
+			auto sp = p.lock();
+			res.push_back(sp->id);
+		}
+
+		return res;
 	}
 
-	bool exists(const Virus::id_type& id) const {
-		// TODO
+	bool exists(const Virus::id_type& id) const noexcept
+	{
+		return virus_map.find(id) != virus_map.end();
 	}
 
-	Virus& operator[](const Virus::id_type& id) const {
-		// TODO
+	Virus& operator[](const Virus::id_type& id) const
+	{
+		auto spt = find_map(id).lock();
+		return *spt->virus_ptr;
 	}
 
 	void create(const Virus::id_type& id,
@@ -81,19 +102,28 @@ public:
 
 private:
 
-	std::map<Virus::id_type, std::weak_ptr<Node>> virus_map;
+	std::unordered_map<Virus::id_type, std::weak_ptr<Node>> virus_map;
 
 	struct Node {
+		Virus::id_type id;
 		std::unique_ptr<Virus> virus_ptr;
 		std::vector<std::shared_ptr<Node>> children;
 		std::vector<std::weak_ptr<Node>> parents;
 
-		Node(const Virus::id_type& id)
-			: virus_ptr(new Virus(id)) {}
+		Node(const Virus::id_type& vir_id)
+			: virus_ptr(new Virus(id))
+			, id(id) {}
 	};
 
-	std::unique_ptr<Node> stem_node;
+	std::shared_ptr<Node> stem_node;
 
+	std::weak_ptr<Node>& find_map(const Virus::id_type& id) const
+	{
+		try
+			return virus_map.at(id);
+		catch (const std::exception& e)
+			throw VirusNotFound();
+	}
 };
 
 #endif /* VIRUS_GENEALOGY_H */
