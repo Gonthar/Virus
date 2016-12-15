@@ -5,7 +5,7 @@
 #include <exception>
 #include <stdexcept>
 #include <memory>
-#include <set>
+#include <map>
 
 class VirusAlreadyCreated : std::runtime_error {
 public:
@@ -50,7 +50,7 @@ public:
 		std::vector<Virus::id_type> res;
 
 		for (auto p : spt->children)
-			res.push_back(p->id);
+			res.push_back(p.first);
 
 		return res;
 	}
@@ -61,15 +61,13 @@ public:
 		auto spt = find_map(id).lock();
 		std::vector<Virus::id_type> res;
 
-		for (auto p : spt->parents) {
-			auto sp = p.lock();
-			res.push_back(sp->id);
-		}
+		for (auto p : spt->parents)
+			res.push_back(p.first);
 
 		return res;
 	}
 
-	bool exists(const Virus::id_type& id) const noexcept
+	bool exists(const Virus::id_type& id) const
 	{
 		return virus_map.find(id) != virus_map.end();
 	}
@@ -92,7 +90,13 @@ public:
 
 	void connect(const Virus::id_type& child_id,
 				 const Virus::id_type& parent_id) {
-		// TODO
+		auto parent_weak = find_map(parent_id);
+		auto child = find_map(child_id).lock();
+
+		child->parents.insert({parent_id, parent_weak})
+
+		auto parent = parent_weak.lock();
+		parent->children.insert({child_id, child});
 	}
 
 	void remove(const Virus::id_type& id)
@@ -104,8 +108,8 @@ public:
 			auto spt = find_map(id).lock();
 
 			for (auto parent : spt->parents) {
-				auto parent_ptr = parent.lock();
-				parent_ptr->children.erase(spt);
+				auto parent_ptr = parent.second.lock();
+				parent_ptr->children.erase(spt->id);
 			}
 		} // ~shared_ptr<Node>();
 
@@ -127,8 +131,8 @@ private:
 	struct Node {
 		Virus::id_type id;
 		std::unique_ptr<Virus> virus_ptr;
-		std::set<std::shared_ptr<Node>> children;
-		std::set<std::weak_ptr<Node>> parents;
+		std::map<Virus::id_type, std::shared_ptr<Node>> children;
+		std::map<Virus::id_type, std::weak_ptr<Node>> parents;
 
 		Node(const Virus::id_type& vir_id)
 			: virus_ptr(new Virus(id))
